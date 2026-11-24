@@ -8,7 +8,7 @@ const mangayomiSources = [{
   isNsfw: false,
   hasCloudflare: false,
   apiUrl: "https://releases.moe/api/collections/entries/records",
-  version: "1.2.1",
+  version: "1.2.2",
   isManga: false,
   itemType: 1,
   isFullData: false,
@@ -67,16 +67,41 @@ function animeStatus(status) {
   }
 }
 function cleanDescription(value) {
-  return String(value || "")
-    .replace(/<br\s*\/?\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
+  let html = String(value || "");
+  html = html.split("<br>").join("\n");
+  html = html.split("<br/>").join("\n");
+  html = html.split("<br />").join("\n");
+  let output = "";
+  let insideTag = false;
+  for (let i = 0; i < html.length; i++) {
+    const ch = html.charAt(i);
+    if (ch === "<") {
+      insideTag = true;
+    } else if (ch === ">") {
+      insideTag = false;
+      output += " ";
+    } else if (!insideTag) {
+      output += ch;
+    }
+  }
+  return output.split("&amp;").join("&")
+    .split("&lt;").join("<")
+    .split("&gt;").join(">")
+    .split("&quot;").join('"')
+    .split("&#39;").join("'")
+    .trim();
 }
 function idFromLink(link) {
-  const match = String(link).match(/^anilist:(\d+)$/);
-  return match ? Number(match[1]) : 0;
+  const value = String(link || "");
+  const prefix = "anilist:";
+  if (value.indexOf(prefix) !== 0) return 0;
+  const id = value.substring(prefix.length);
+  if (!id) return 0;
+  for (let i = 0; i < id.length; i++) {
+    const code = id.charCodeAt(i);
+    if (code < 48 || code > 57) return 0;
+  }
+  return Number(id);
 }
 async function getSeaDexTorrents(aniListId) {
   const releases = [];
