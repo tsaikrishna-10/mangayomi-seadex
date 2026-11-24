@@ -8,13 +8,13 @@ const mangayomiSources = [{
   isNsfw: false,
   hasCloudflare: false,
   apiUrl: "https://releases.moe/api/collections/entries/records",
-  version: "1.1.0",
+  version: "1.2.0",
   isManga: false,
   itemType: 1,
   isFullData: false,
   appMinVerReq: "0.5.0",
   sourceCodeLanguage: 1,
-  notes: "SeaDex release index; Japanese audio / English subtitles preferred"
+  notes: "SeaDex release index. Searches AniList and lists Best/Alt torrent metadata."
 }];
 
 const ANILIST_API = "https://graphql.anilist.co";
@@ -27,68 +27,65 @@ function parseJson(body) {
 function text(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
-function recordTracker(record) {
-  const expanded = record && record.expand;
-  const trs = expanded && Array.isArray(expanded.trs) ? expanded.trs : [];
-  return trs.length ? trs[0] : {};
-}
-function normalizeRelease(record) {
-  const tracker = recordTracker(record);
-  return {
-    id: String(record.id || ""),
-    edition: text(record.edition || record.type || record.status, "Unknown"),
-    title: text(record.title || record.name, "SeaDex release"),
-    group: text(tracker.group || tracker.release_group || tracker.name ||
-      record.release_group || record.group, "Unknown group"),
-    tracker: text(tracker.name || tracker.tracker, "SeaDex"),
-    audio: text(record.audio_language || record.audioLanguage, ""),
-    subtitles: text(record.subtitle_language || record.subtitleLanguage, ""),
-    resolution: text(record.resolution || record.quality, ""),
-    hdr: text(record.hdr || record.hdr_format || record.hdrFormat, ""),
-    url: text(record.url || record.release_url || record.releaseUrl, ""),
-    infoHash: text(record.infohash || record.info_hash || record.infoHash, ""),
-    raw: record
-  };
-}
-function releaseScore(release) {
-  let score = release.edition.toLowerCase() === "best" ? 100 :
-    release.edition.toLowerCase() === "alt" ? 50 : 0;
-  if (/japanese/i.test(release.audio)) score += 20;
-  if (/english/i.test(release.subtitles)) score += 20;
-  if (/2160|4k/i.test(release.resolution)) score += 8;
-  else if (/1080/i.test(release.resolution)) score += 5;
-  return score;
-}
 async function anilistSearch(query, page) {
   const gql = "query ($search: String, $page: Int) { Page(page: $page, perPage: 20) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { id title { romaji english native } coverImage { large } description format status episodes seasonYear } } }";
   const response = await client.post(ANILIST_API, {
-    "Content-Type": "application/json",
-    "Accept": "application/json"
+    "Content-Type": "application/json", "Accept": "application/json"
   }, JSON.stringify({ query: gql, variables: { search: query, page: page } }));
   const payload = parseJson(response.body);
   const media = payload && payload.data && payload.data.Page && payload.data.Page.media;
   return Array.isArray(media) ? media : [];
 }
-async function seaDexByAniListId(id) {
-  const url = SEADEX_API + "?perPage=100&expand=trs&filter=" +
-    encodeURIComponent("anilist_id=" + Number(id));
-  const response = await client.get(url, { "Accept": "application/json" });
-  const payload = parseJson(response.body);
-  const items = payload && Array.isArray(payload.items) ? payload.items : [];
-  return items.map(normalizeRelease).sort((a, b) => releaseScore(b) - releaseScore(a));
-}
 function animeName(media) {
   const title = media.title || {};
   return text(title.english || title.romaji || title.native, "Unknown anime");
 }
-function detailLink(media) {
-  return "anilist:" + media.id;
-}
-function mediaFromLink(link) {
+function animeLink(id) { return "anilist:" + Number(id); }
+function idFromLink(link) {
   const match = String(link).match(/^anilist:(\d+)$/);
   return match ? Number(match[1]) : 0;
 }
-
+async function getSeaDexTorrents(aniListId) {
+  const url = SEADEX_API + "?page=1&perPage=100&skipTotal=false&expand=trs&filter=" +
+    encodeURIComponent("alID=" + Number(aniListId));
+  const response = await client.get(url, { "Accept": "application/json" });
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error("SeaDex API returned HTTP " + response.status);
+  }
+  const payload = parseJson(response.body);
+  const entries = payload && Array.isArray(payload.items) ? payload.items : [];
+  const releases = [];
+  for (const entry of entries) {
+    const expanded = entry && entry.expand;
+    const torrents = expanded && Array.isArray(expanded.trs) ? expanded.trs : [];
+    for (const torrent of torrents) {
+      const hash = text(torrent.infoHash, "");
+      releases.push({
+        entryId: String(entry.id || ""),
+        aniListId: Number(entry.alID || aniListId),
+        releaseGroup: text(torrent.releaseGroup, "Unknown group"),
+        tracker: text(torrent.tracker, "Unknown tracker"),
+        isBest: torrent.isBest === true,
+        url: text(torrent.url, ""),
+        infoHash: hash && hash !== "<redacted>" ? hash : "",
+        dualAudio: typeof torrent.dualAudio === "boolean" ? torrent.dualAudio : null
+      });
+    }
+  }
+  releases.sort((a, b) => {
+    if (a.isBest !== b.isBest) return a.isBest ? -1 : 1;
+    return a.releaseGroup.localeCompare(b.releaseGroup);
+  });
+  return releases;
+}
+async function getAniListMedia(id) {
+  const query = "query ($id: Int) { Media(id: $id, type: ANIME) { id title { romaji english native } coverImage { large } description format status episodes seasonYear } }";
+  const response = await client.post(ANILIST_API, {
+    "Content-Type": "application/json", "Accept": "application/json"
+  }, JSON.stringify({ query: query, variables: { id: id } }));
+  const payload = parseJson(response.body);
+  return payload && payload.data && payload.data.Media || null;
+}
 class DefaultExtension extends MProvider {
   getHeaders() { return { "Accept": "application/json" }; }
   get supportsLatest() { return false; }
@@ -101,7 +98,7 @@ class DefaultExtension extends MProvider {
     return {
       list: results.map(media => ({
         name: animeName(media),
-        link: detailLink(media),
+        link: animeLink(media.id),
         imageUrl: media.coverImage && media.coverImage.large || ""
       })),
       hasNextPage: results.length === 20
@@ -109,41 +106,36 @@ class DefaultExtension extends MProvider {
   }
 
   async getDetail(link) {
-    const id = mediaFromLink(link);
+    const id = idFromLink(link);
     if (!id) throw new Error("Invalid AniList entry link.");
-    const query = "query ($id: Int) { Media(id: $id, type: ANIME) { id title { romaji english native } coverImage { large } description format status episodes seasonYear } }";
-    const response = await client.post(ANILIST_API, {
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    }, JSON.stringify({ query: query, variables: { id: id } }));
-    const payload = parseJson(response.body);
-    const media = payload && payload.data && payload.data.Media;
+    const media = await getAniListMedia(id);
     if (!media) throw new Error("AniList title could not be loaded.");
+    const releases = await getSeaDexTorrents(id);
 
-    const releases = await seaDexByAniListId(id);
     return {
       name: animeName(media),
       imageUrl: media.coverImage && media.coverImage.large || "",
-      description: (media.description || "").replace(/<[^>]*>/g, " "),
+      description: (media.description || "").replace(/<[^>]*>/g, " ") +
+        (releases.length ? "\n\nSeaDex indexed " + releases.length + " torrent entries. Open the release link externally; these are not direct video streams." : "\n\nNo SeaDex releases found."),
       genre: [],
       status: 1,
       chapters: releases.map((release, index) => ({
-        name: (release.edition + " · " + release.group + " · " + release.title +
-          (release.resolution ? " · " + release.resolution : "") +
-          (release.hdr ? " · " + release.hdr : "")),
-        url: "seadex:" + release.id,
-        scanlator: release.group
+        name: (release.isBest ? "BEST" : "ALT") + " · " +
+          release.releaseGroup + " · " + release.tracker +
+          (release.dualAudio === true ? " · Dual audio" : "") +
+          (release.infoHash ? " · Infohash available" : " · Private/hidden hash"),
+        url: "seadex:" + id + ":" + index,
+        scanlator: release.releaseGroup
       }))
     };
   }
 
   async getVideoList(url) {
-    // SeaDex release pages, magnets and infohashes are not direct video streams.
-    // Returning them as MVideo URLs would falsely advertise them as playable.
+    // A SeaDex torrent record is metadata, not a playable video URL.
+    // Never feed a magnet or tracker page to MVideo as if it were an HTTP stream.
     return [];
   }
 
   getFilterList() { return []; }
   getSourcePreferences() { return []; }
 }
-
