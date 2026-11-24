@@ -8,7 +8,7 @@ const mangayomiSources = [{
   isNsfw: false,
   hasCloudflare: false,
   apiUrl: "https://releases.moe/api/collections/entries/records",
-  version: "1.2.2",
+  version: "1.2.3",
   isManga: false,
   itemType: 1,
   isFullData: false,
@@ -44,7 +44,7 @@ async function anilistSearch(query, page) {
   const gql = "query ($search: String, $page: Int) { Page(page: $page, perPage: 20) { media(search: $search, type: ANIME, sort: SEARCH_MATCH) { id title { romaji english native } coverImage { large } description format status episodes seasonYear } } }";
   const response = await client.post(ANILIST_API, {
     "Content-Type": "application/json", "Accept": "application/json"
-  }, JSON.stringify({ query: gql, variables: { search: query, page: page } }));
+  }, { query: gql, variables: { search: query, page: page } });
   ensureSuccess(response, "AniList");
   const payload = parseJson(response.body, "AniList");
   ensureGraphQLSuccess(payload);
@@ -147,7 +147,7 @@ async function getAniListMedia(id) {
   const query = "query ($id: Int) { Media(id: $id, type: ANIME) { id title { romaji english native } coverImage { large } description format status episodes seasonYear } }";
   const response = await client.post(ANILIST_API, {
     "Content-Type": "application/json", "Accept": "application/json"
-  }, JSON.stringify({ query: query, variables: { id: id } }));
+  }, { query: query, variables: { id: id } });
   ensureSuccess(response, "AniList");
   const payload = parseJson(response.body, "AniList");
   ensureGraphQLSuccess(payload);
