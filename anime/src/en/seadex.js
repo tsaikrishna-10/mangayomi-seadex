@@ -68,11 +68,11 @@ function animeStatus(status) {
 }
 function cleanDescription(value) {
   return String(value || "")
-    .replace(/<br\\s*\\/?\\s*>/gi, "\\n")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'").replace(/\\s+/g, " ").trim();
+    .replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
 }
 function idFromLink(link) {
   const match = String(link).match(/^anilist:(\d+)$/);
