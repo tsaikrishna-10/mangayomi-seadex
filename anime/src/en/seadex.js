@@ -8,7 +8,7 @@ const mangayomiSources = [{
   isNsfw: false,
   hasCloudflare: false,
   apiUrl: "https://releases.moe/api/collections/entries/records",
-  version: "1.2.0",
+  version: "1.2.1",
   isManga: false,
   itemType: 1,
   isFullData: false,
