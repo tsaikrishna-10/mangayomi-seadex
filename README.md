@@ -10,6 +10,9 @@ SeaDex's entry collection uses `alID` for the AniList ID. Each entry's expanded 
 ## Behavior
 - AniList search and title details.
 - All expanded torrent records are flattened and shown as Best/Alt releases.
+- The JavaScript adapter and Dart service follow SeaDex pagination (`totalPages`) instead of silently limiting JavaScript results to the first 100 entries.
+- Non-success HTTP responses and malformed JSON now surface explicit service errors.
+- The Dart service closes only the HTTP client it created; injected clients remain owned by the caller.
 - Release group, tracker, dual-audio flag and infohash availability are shown only from actual fields.
 - Private/redacted infohashes are not turned into magnets.
 - Pagination is handled in the Dart service.
