@@ -1,0 +1,24 @@
+[
+  {
+    "name": "SeaDex",
+    "id": 987654321,
+    "baseUrl": "https://releases.moe",
+    "lang": "en",
+    "typeSource": "single",
+    "iconUrl": "https://releases.moe/favicon.ico",
+    "dateFormat": "",
+    "dateFormatLocale": "",
+    "isNsfw": false,
+    "hasCloudflare": false,
+    "sourceCodeUrl": "https://raw.githubusercontent.com/tsaikrishna-10/mangayomi-seadex/main/anime/src/en/seadex.js",
+    "apiUrl": "https://releases.moe/api/collections/entries/records",
+    "version": "1.2.1",
+    "isManga": false,
+    "itemType": 1,
+    "isFullData": false,
+    "appMinVerReq": "0.5.0",
+    "additionalParams": "",
+    "sourceCodeLanguage": 1,
+    "notes": "SeaDex release index. Searches AniList and lists Best/Alt torrent metadata; does not provide direct video streams."
+  }
+]
