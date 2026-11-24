@@ -48,12 +48,14 @@ class SeaDexRelease {
 
 class SeaDexService {
   SeaDexService({http.Client? client})
-      : _client = client ?? http.Client();
+      : _client = client ?? http.Client(),
+        _ownsClient = client == null;
 
   static final Uri _endpoint =
       Uri.parse('https://releases.moe/api/collections/entries/records');
 
   final http.Client _client;
+  final bool _ownsClient;
 
   Future<List<SeaDexRelease>> getReleasesByAniListId(int aniListId) async {
     if (aniListId <= 0) throw ArgumentError.value(aniListId, 'aniListId');
@@ -112,7 +114,10 @@ class SeaDexService {
     return releases;
   }
 
-  void close() => _client.close();
+  /// Closes the internally-created client. Injected clients remain caller-owned.
+  void close() {
+    if (_ownsClient) _client.close();
+  }
 }
 
 class SeaDexException implements Exception {
