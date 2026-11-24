@@ -31,6 +31,12 @@ function ensureSuccess(response, serviceName) {
     throw new Error(serviceName + " returned HTTP " + code + ".");
   }
 }
+function ensureGraphQLSuccess(payload) {
+  if (payload && Array.isArray(payload.errors) && payload.errors.length) {
+    const message = payload.errors.map(error => error && error.message || "GraphQL error").join("; ");
+    throw new Error("AniList: " + message);
+  }
+}
 function text(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
@@ -41,6 +47,7 @@ async function anilistSearch(query, page) {
   }, JSON.stringify({ query: gql, variables: { search: query, page: page } }));
   ensureSuccess(response, "AniList");
   const payload = parseJson(response.body, "AniList");
+  ensureGraphQLSuccess(payload);
   const media = payload && payload.data && payload.data.Page && payload.data.Page.media;
   return Array.isArray(media) ? media : [];
 }
@@ -100,6 +107,7 @@ async function getAniListMedia(id) {
   }, JSON.stringify({ query: query, variables: { id: id } }));
   ensureSuccess(response, "AniList");
   const payload = parseJson(response.body, "AniList");
+  ensureGraphQLSuccess(payload);
   return payload && payload.data && payload.data.Media || null;
 }
 class DefaultExtension extends MProvider {
@@ -145,6 +153,8 @@ class DefaultExtension extends MProvider {
       }))
     };
   }
+
+  async getPageList(url) { return []; }
 
   async getVideoList(url) {
     // A SeaDex torrent record is metadata, not a playable video URL.
