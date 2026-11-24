@@ -21,8 +21,15 @@ const ANILIST_API = "https://graphql.anilist.co";
 const SEADEX_API = "https://releases.moe/api/collections/entries/records";
 const client = new Client();
 
-function parseJson(body) {
-  try { return JSON.parse(body); } catch (_) { return {}; }
+function parseJson(body, serviceName) {
+  try { return JSON.parse(body); }
+  catch (_) { throw new Error(serviceName + " returned invalid JSON."); }
+}
+function ensureSuccess(response, serviceName) {
+  if (!response || response.statusCode < 200 || response.statusCode >= 300) {
+    const code = response && response.statusCode ? response.statusCode : "unknown";
+    throw new Error(serviceName + " returned HTTP " + code + ".");
+  }
 }
 function text(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -32,7 +39,8 @@ async function anilistSearch(query, page) {
   const response = await client.post(ANILIST_API, {
     "Content-Type": "application/json", "Accept": "application/json"
   }, JSON.stringify({ query: gql, variables: { search: query, page: page } }));
-  const payload = parseJson(response.body);
+  ensureSuccess(response, "AniList");
+  const payload = parseJson(response.body, "AniList");
   const media = payload && payload.data && payload.data.Page && payload.data.Page.media;
   return Array.isArray(media) ? media : [];
 }
@@ -46,32 +54,39 @@ function idFromLink(link) {
   return match ? Number(match[1]) : 0;
 }
 async function getSeaDexTorrents(aniListId) {
-  const url = SEADEX_API + "?page=1&perPage=100&skipTotal=false&expand=trs&filter=" +
-    encodeURIComponent("alID=" + Number(aniListId));
-  const response = await client.get(url, { "Accept": "application/json" });
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new Error("SeaDex API returned HTTP " + response.statusCode);
-  }
-  const payload = parseJson(response.body);
-  const entries = payload && Array.isArray(payload.items) ? payload.items : [];
   const releases = [];
-  for (const entry of entries) {
-    const expanded = entry && entry.expand;
-    const torrents = expanded && Array.isArray(expanded.trs) ? expanded.trs : [];
-    for (const torrent of torrents) {
-      const hash = text(torrent.infoHash, "");
-      releases.push({
-        entryId: String(entry.id || ""),
-        aniListId: Number(entry.alID || aniListId),
-        releaseGroup: text(torrent.releaseGroup, "Unknown group"),
-        tracker: text(torrent.tracker, "Unknown tracker"),
-        isBest: torrent.isBest === true,
-        url: text(torrent.url, ""),
-        infoHash: hash && hash !== "<redacted>" ? hash : "",
-        dualAudio: typeof torrent.dualAudio === "boolean" ? torrent.dualAudio : null
-      });
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const url = SEADEX_API + "?page=" + page +
+      "&perPage=100&skipTotal=false&expand=trs&filter=" +
+      encodeURIComponent("alID=" + Number(aniListId));
+    const response = await client.get(url, { "Accept": "application/json" });
+    ensureSuccess(response, "SeaDex");
+    const payload = parseJson(response.body, "SeaDex");
+    if (Number.isInteger(payload.totalPages) && payload.totalPages > 0) {
+      totalPages = payload.totalPages;
     }
-  }
+    const entries = payload && Array.isArray(payload.items) ? payload.items : [];
+    for (const entry of entries) {
+      const expanded = entry && entry.expand;
+      const torrents = expanded && Array.isArray(expanded.trs) ? expanded.trs : [];
+      for (const torrent of torrents) {
+        const hash = text(torrent.infoHash, "");
+        releases.push({
+          entryId: String(entry.id || ""),
+          aniListId: Number(entry.alID || aniListId),
+          releaseGroup: text(torrent.releaseGroup, "Unknown group"),
+          tracker: text(torrent.tracker, "Unknown tracker"),
+          isBest: torrent.isBest === true,
+          url: text(torrent.url, ""),
+          infoHash: hash && hash !== "<redacted>" ? hash : "",
+          dualAudio: typeof torrent.dualAudio === "boolean" ? torrent.dualAudio : null
+        });
+      }
+    }
+    page++;
+  } while (page <= totalPages);
   releases.sort((a, b) => {
     if (a.isBest !== b.isBest) return a.isBest ? -1 : 1;
     return a.releaseGroup.localeCompare(b.releaseGroup);
@@ -83,7 +98,8 @@ async function getAniListMedia(id) {
   const response = await client.post(ANILIST_API, {
     "Content-Type": "application/json", "Accept": "application/json"
   }, JSON.stringify({ query: query, variables: { id: id } }));
-  const payload = parseJson(response.body);
+  ensureSuccess(response, "AniList");
+  const payload = parseJson(response.body, "AniList");
   return payload && payload.data && payload.data.Media || null;
 }
 class DefaultExtension extends MProvider {
