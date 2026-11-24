@@ -1,23 +1,18 @@
-# Mangayomi SeaDex integration
+# Mangayomi SeaDex
 
-A two-layer integration workspace for SeaDex:
+Repository for a SeaDex integration prototype.
 
-- `lib/services/seadex_service.dart`: native Dart HTTP client and release model.
-- `anime/src/en/seadex.js`: JavaScript SeaDex client/normalizer for a Mangayomi source adapter.
+## Files
+- `anime/src/en/seadex.js`: Mangayomi JavaScript source. Searches AniList and looks up SeaDex entries by AniList ID.
+- `lib/services/seadex_service.dart`: native Dart SeaDex REST client/model.
 
-## What it does
+## Current behavior
+- Searches AniList anime titles.
+- Loads every SeaDex entry for a selected AniList ID, with expanded tracker relation.
+- Sorts Best before Alt, then ranks explicitly supplied Japanese-audio, English-subtitle and resolution metadata.
+- Shows release group, edition, title and known quality/HDR labels in the episode list.
 
-- Queries the SeaDex PocketBase entries collection and expands the `trs` relation.
-- Keeps all returned entries instead of silently selecting only the first entry.
-- Ranks Best ahead of Alt, then prefers Japanese audio, English subtitles, and higher resolution **only when those fields are explicitly present**.
-- Preserves the raw record so the adapter can expose additional release metadata.
+## Not yet complete
+SeaDex is an index, not a video host. This source intentionally returns no MVideo items: magnet/infohash/release-page URLs are not direct playable streams. A separate, explicit external handoff to a torrent client/provider is required before playback can be offered. The current source also needs a runtime test against the live SeaDex PocketBase schema; the default AniList relation field is `anilist_id` and may need adjustment if the live schema differs.
 
-## Important limitations
-
-SeaDex is a release index, not a video host. An infohash, magnet, or external release page is not a direct playable HTTP stream. The Mangayomi adapter must hand those links to a compatible torrent client/provider; it must not label them as direct streams.
-
-PocketBase field names can change. The Dart and JS clients default to the AniList field `anilist_id`; change `aniListField` if the live collection uses a different field. Verify the collection schema before shipping. The adapter deliberately does not infer Japanese audio or English subtitles from `dualAudio == false`.
-
-## Integration status
-
-These files provide the API/model layer. The final `MProvider` adapter and native app wiring still need to be matched to the exact Mangayomi version and its current extension interfaces. Do not copy this folder into an extension repository without checking that repository's required source layout and index format.
+The Dart service is a reusable API layer; it is not yet wired into Mangayomi's native application dependency graph.
