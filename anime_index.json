@@ -12,7 +12,7 @@
     "hasCloudflare": false,
     "sourceCodeUrl": "https://raw.githubusercontent.com/tsaikrishna-10/mangayomi-seadex/main/anime/src/en/seadex.js",
     "apiUrl": "https://releases.moe/api/collections/entries/records",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "isManga": false,
     "itemType": 1,
     "isFullData": false,
