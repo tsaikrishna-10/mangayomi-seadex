@@ -49,8 +49,8 @@ async function getSeaDexTorrents(aniListId) {
   const url = SEADEX_API + "?page=1&perPage=100&skipTotal=false&expand=trs&filter=" +
     encodeURIComponent("alID=" + Number(aniListId));
   const response = await client.get(url, { "Accept": "application/json" });
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error("SeaDex API returned HTTP " + response.status);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error("SeaDex API returned HTTP " + response.statusCode);
   }
   const payload = parseJson(response.body);
   const entries = payload && Array.isArray(payload.items) ? payload.items : [];
