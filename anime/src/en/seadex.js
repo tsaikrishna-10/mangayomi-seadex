@@ -56,6 +56,24 @@ function animeName(media) {
   return text(title.english || title.romaji || title.native, "Unknown anime");
 }
 function animeLink(id) { return "anilist:" + Number(id); }
+function animeStatus(status) {
+  switch (status) {
+    case "RELEASING":
+    case "NOT_YET_RELEASED": return 0;
+    case "FINISHED": return 1;
+    case "CANCELLED": return 3;
+    case "HIATUS": return 2;
+    default: return 4;
+  }
+}
+function cleanDescription(value) {
+  return String(value || "")
+    .replace(/<br\\s*\\/?\\s*>/gi, "\\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'").replace(/\\s+/g, " ").trim();
+}
 function idFromLink(link) {
   const match = String(link).match(/^anilist:(\d+)$/);
   return match ? Number(match[1]) : 0;
@@ -138,11 +156,12 @@ class DefaultExtension extends MProvider {
 
     return {
       name: animeName(media),
+      link: link,
       imageUrl: media.coverImage && media.coverImage.large || "",
-      description: (media.description || "").replace(/<[^>]*>/g, " ") +
-        (releases.length ? "\n\nSeaDex indexed " + releases.length + " torrent entries. Open the release link externally; these are not direct video streams." : "\n\nNo SeaDex releases found."),
+      description: cleanDescription(media.description) +
+        (releases.length ? "\n\nSeaDex indexed " + releases.length + " torrent entries. These are release records, not direct video streams." : "\n\nNo SeaDex releases found."),
       genre: [],
-      status: 1,
+      status: animeStatus(media.status),
       chapters: releases.map((release, index) => ({
         name: (release.isBest ? "BEST" : "ALT") + " · " +
           release.releaseGroup + " · " + release.tracker +
